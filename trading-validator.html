@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="트레이드 검증">
+<title>자동매매 전략 검증</title>
+<style>
+  :root {
+    --bg: #0a0f1e; --panel: #111827; --border: #1e293b;
+    --accent: #00d4ff; --green: #00ff88; --red: #ff3b5c;
+    --amber: #ffb800; --text: #e2e8f0; --muted: #64748b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, 'Inter', sans-serif; min-height: 100vh; padding-bottom: env(safe-area-inset-bottom, 20px); }
+  .mono { font-family: 'Courier New', monospace; }
+
+  /* Header */
+  .header { background: linear-gradient(135deg,#0a0f1e,#0d1a2e); border-bottom: 1px solid var(--border); padding: 16px 16px 0; position: sticky; top: 0; z-index: 100; padding-top: calc(16px + env(safe-area-inset-top, 0px)); }
+  .header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .header-title { font-size: 17px; font-weight: 700; }
+  .header-sub { font-size: 10px; color: var(--muted); letter-spacing: .1em; display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .dot-live { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  /* Score ring */
+  .ring-wrap { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .ring-label { font-size: 10px; color: var(--muted); }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 0; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { padding: 7px 14px; border-radius: 8px 8px 0 0; border: none; cursor: pointer; font-size: 12px; font-weight: 500; white-space: nowrap; background: transparent; color: var(--muted); transition: all .15s; }
+  .tab.active { background: var(--accent); color: var(--bg); }
+
+  /* Content */
+  .content { padding: 16px; max-width: 600px; margin: 0 auto; }
+
+  /* Params */
+  .params-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  .params-title { grid-column: 1/-1; font-size: 11px; color: var(--accent); font-weight: 600; margin-bottom: 4px; }
+  .slider-wrap { display: flex; flex-direction: column; gap: 3px; }
+  .slider-row { display: flex; justify-content: space-between; align-items: center; }
+  .slider-lbl { font-size: 11px; color: var(--muted); }
+  .slider-val { font-size: 11px; color: var(--accent); font-family: 'Courier New', monospace; }
+  input[type=range] { width: 100%; accent-color: var(--accent); height: 4px; cursor: pointer; }
+
+  /* Cards */
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+  .card-lbl { font-size: 10px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 4px; }
+  .card-val { font-size: 20px; font-family: 'Courier New', monospace; font-weight: 700; }
+  .card-note { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .c-good { color: var(--green); } .c-warn { color: var(--amber); } .c-bad { color: var(--red); } .c-info { color: var(--accent); }
+
+  /* Section header */
+  .sec-hdr { display: flex; align-items: center; gap: 10px; margin: 20px 0 12px; }
+  .sec-num { width: 26px; height: 26px; border-radius: 50%; background: rgba(0,212,255,.1); border: 1px solid rgba(0,212,255,.3); display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--accent); font-family: 'Courier New', monospace; font-weight: 700; flex-shrink: 0; }
+  .sec-title { font-size: 13px; font-weight: 600; color: var(--text); }
+  .sec-badge { font-size: 10px; padding: 2px 8px; border-radius: 20px; background: rgba(255,184,0,.12); color: var(--amber); border: 1px solid rgba(255,184,0,.3); }
+
+  /* Panel */
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 14px; }
+  .panel-divider { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
+
+  /* Gauge */
+  .gauge-wrap { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+  .gauge-row { display: flex; justify-content: space-between; }
+  .gauge-lbl { font-size: 11px; color: var(--muted); }
+  .gauge-val { font-size: 11px; font-family: 'Courier New', monospace; }
+  .gauge-track { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .gauge-fill { height: 100%; border-radius: 3px; transition: width .5s ease; }
+
+  /* Tags */
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .tag { padding: 3px 9px; border-radius: 20px; font-size: 10px; }
+  .tag-good { background: rgba(0,255,136,.1); color: var(--green); border: 1px solid rgba(0,255,136,.3); }
+  .tag-bad { background: rgba(255,59,92,.1); color: var(--red); border: 1px solid rgba(255,59,92,.3); }
+
+  /* Bar chart */
+  .barchart { display: flex; align-items: flex-end; gap: 3px; height: 80px; }
+  .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; height: 100%; justify-content: flex-end; }
+  .bar { width: 100%; border-radius: 2px 2px 0 0; min-height: 2px; transition: height .4s ease; }
+  .bar-lbl { font-size: 9px; color: var(--muted); }
+
+  /* Crisis rows */
+  .crisis-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+  .crisis-row:last-child { border-bottom: none; }
+  .crisis-dot { width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #000; font-weight: 700; }
+  .crisis-name { font-size: 12px; color: var(--text); }
+  .crisis-dur { font-size: 10px; color: var(--muted); }
+  .crisis-pct { font-size: 14px; font-family: 'Courier New', monospace; font-weight: 700; margin-left: auto; }
+
+  /* Capacity rows */
+  .cap-row { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; margin-bottom: 6px; }
+  .cap-seed { width: 70px; font-size: 12px; font-weight: 600; }
+  .cap-detail { flex: 1; font-size: 10px; color: var(--muted); }
+  .cap-ret { font-size: 13px; font-family: 'Courier New', monospace; font-weight: 700; }
+
+  /* Checklist */
+  .checklist { display: flex; flex-direction: column; gap: 6px; }
+  .check-item { font-size: 12px; color: var(--muted); display: flex; gap: 8px; }
+  .check-box { color: var(--amber); }
+
+  /* Kelly formula box */
+  .formula-box { font-size: 12px; color: var(--muted); line-height: 1.8; padding-top: 12px; border-top: 1px solid var(--border); margin-top: 12px; }
+
+  /* 3-col grid */
+  .col3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .col3-card { text-align: center; padding: 10px 6px; background: rgba(30,41,59,.4); border-radius: 6px; }
+  .col3-lbl { font-size: 10px; color: var(--muted); margin-bottom: 4px; }
+  .col3-val { font-size: 15px; font-family: 'Courier New', monospace; font-weight: 700; }
+
+  /* 2-col checklist grid */
+  .check2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .check-title { font-size: 11px; color: var(--accent); font-weight: 600; margin-bottom: 8px; }
+
+  /* Walk forward steps */
+  .wf-row { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .wf-row:last-child { border-bottom: none; }
+  .wf-step { width: 90px; font-size: 11px; font-weight: 600; flex-shrink: 0; }
+  .wf-desc { font-size: 11px; color: var(--muted); }
+
+  /* Safe area bottom */
+  .safe-bottom { height: calc(20px + env(safe-area-inset-bottom, 0px)); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <div>
+      <div class="header-sub"><div class="dot-live"></div> AUTO-TRADE VALIDATOR</div>
+      <div class="header-title">전략 검증 프레임워크</div>
+    </div>
+    <div class="ring-wrap">
+      <svg id="ringsvg" width="64" height="64" viewBox="0 0 64 64">
+        <circle cx="32" cy="32" r="26" fill="none" stroke="#1e293b" stroke-width="5"/>
+        <circle id="ringfill" cx="32" cy="32" r="26" fill="none" stroke="#00ff88" stroke-width="5"
+          stroke-dasharray="0 163.36" stroke-dashoffset="40.84" stroke-linecap="round"
+          style="transition:stroke-dasharray .6s ease"/>
+        <text id="ringscore" x="32" y="37" text-anchor="middle" font-size="13" font-family="'Courier New',monospace"
+          font-weight="700" fill="#00ff88">—</text>
+      </svg>
+      <div class="ring-label">종합점수</div>
+    </div>
+  </div>
+  <div class="tabs" id="tabs">
+    <button class="tab active" onclick="switchTab('overview')">Overview</button>
+    <button class="tab" onclick="switchTab('risk')">리스크</button>
+    <button class="tab" onclick="switchTab('montecarlo')">Monte Carlo</button>
+    <button class="tab" onclick="switchTab('cost')">비용/용량</button>
+    <button class="tab" onclick="switchTab('stress')">스트레스</button>
+  </div>
+</div>
+
+<div class="content">
+  <!-- PARAMS -->
+  <div class="params-grid" id="params-panel">
+    <div class="params-title">⚙ 전략 파라미터</div>
+  </div>
+
+  <!-- TAB CONTENT -->
+  <div id="tab-content"></div>
+  <div class="safe-bottom"></div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────
+const P = {
+  totalTrades:350, winRate:55, avgWin:2.1, avgLoss:1.0,
+  initialCapital:100000000, commissionRate:0.015, slippagePct:0.05,
+  spreadPct:0.02, annualReturn:28, mdd:12, riskFreeRate:3.5,
+  kellyFraction:0.5, mcRuns:500, stressShockPct:40
+};
+
+let currentTab = 'overview';
+
+// ── Helpers ────────────────────────────────────────────────────────
+const fmt = (n, d=2) => (n==null||isNaN(n)) ? '—' : n.toFixed(d);
+const fmtP = n => fmt(n)+'%';
+const fmtKRW = n => {
+  const a=Math.abs(n);
+  if(a>=1e8) return (n/1e8).toFixed(2)+'억';
+  if(a>=1e4) return (n/1e4).toFixed(0)+'만';
+  return n.toFixed(0);
+};
+const tierCol = t => ({good:'var(--green)',warn:'var(--amber)',bad:'var(--red)',neutral:'var(--accent)'}[t]||'var(--text)');
+const el = id => document.getElementById(id);
+
+// ── Metrics ────────────────────────────────────────────────────────
+function calcMetrics() {
+  const wr=P.winRate/100, lr=1-wr;
+  const profitFactor=(wr*P.avgWin)/(lr*P.avgLoss);
+  const expectancy=wr*P.avgWin-lr*P.avgLoss;
+  const kellyFull=Math.max(0,(wr/P.avgLoss)-(lr/P.avgWin))*100;
+  const kellyHalf=kellyFull*P.kellyFraction;
+  const totalCostPct=P.commissionRate*2+P.slippagePct+P.spreadPct;
+  const costDragPct=totalCostPct*P.totalTrades;
+  const netAnnualReturn=P.annualReturn-costDragPct;
+  const sharpe=(P.annualReturn-P.riskFreeRate)/(P.mdd*0.6);
+  const sortino=(P.annualReturn-P.riskFreeRate)/(P.mdd*0.4);
+  const calmar=P.annualReturn/P.mdd;
+  const recoveryFactor=P.annualReturn/P.mdd*2.5;
+  const rho=lr/wr;
+  const ruinProb=rho<1?Math.pow(rho,20)*100:99;
+
+  const mcResults=[];
+  for(let i=0;i<Math.min(P.mcRuns,1000);i++){
+    let eq=1,pk=1,mxdd=0;
+    for(let t=0;t<P.totalTrades;t++){
+      const win=Math.random()<wr;
+      eq*=(1+(win?P.avgWin/100:-P.avgLoss/100)-totalCostPct/100);
+      if(eq>pk)pk=eq;
+      const dd=(pk-eq)/pk; if(dd>mxdd)mxdd=dd;
+    }
+    mcResults.push({fe:eq,mdd:mxdd*100});
+  }
+  mcResults.sort((a,b)=>a.fe-b.fe);
+  const mc5=mcResults[Math.floor(mcResults.length*.05)]||{fe:1,mdd:0};
+  const mc50=mcResults[Math.floor(mcResults.length*.5)]||{fe:1,mdd:0};
+  const mc95=mcResults[Math.floor(mcResults.length*.95)]||{fe:1,mdd:0};
+  const mcRuinPct=mcResults.filter(r=>r.fe<0.5).length/mcResults.length*100;
+
+  const overfitRisk=Math.max(0,Math.min(100,
+    (profitFactor>3?40:profitFactor>2?20:0)+
+    (P.winRate>70?30:P.winRate>60?15:0)+
+    (P.totalTrades<100?30:P.totalTrades<200?15:0)
+  ));
+  const stressEquity=(1-P.stressShockPct/100)*100;
+  const stressMDD=P.mdd+P.stressShockPct*0.5;
+  const stressSharpe=(netAnnualReturn*(1-P.stressShockPct/100)-P.riskFreeRate)/(stressMDD*0.6);
+
+  return {profitFactor,expectancy,kellyFull,kellyHalf,totalCostPct,costDragPct,
+    netAnnualReturn,sharpe,sortino,calmar,recoveryFactor,ruinProb,
+    mc5,mc50,mc95,mcRuinPct,overfitRisk,stressEquity,stressMDD,stressSharpe};
+}
+
+// ── HTML Builders ──────────────────────────────────────────────────
+function card(label,value,unit,tier,note){
+  const col=tierCol(tier);
+  return `<div class="card">
+    <div class="card-lbl">${label}</div>
+    <div class="card-val" style="color:${col}">${value}${unit||''}</div>
+    ${note?`<div class="card-note">${note}</div>`:''}
+  </div>`;
+}
+
+function secHdr(num,title,badge){
+  return `<div class="sec-hdr">
+    <div class="sec-num">${num}</div>
+    <div class="sec-title">${title}</div>
+    ${badge?`<div class="sec-badge">${badge}</div>`:''}
+  </div>`;
+}
+
+function gauge(label,value,max,colorFn){
+  const pct=Math.min(100,Math.max(0,value/max*100));
+  const col=colorFn(pct);
+  return `<div class="gauge-wrap">
+    <div class="gauge-row">
+      <span class="gauge-lbl">${label}</span>
+      <span class="gauge-val" style="color:${col}">${fmt(value,1)}%</span>
+    </div>
+    <div class="gauge-track"><div class="gauge-fill" style="width:${pct}%;background:${col}"></div></div>
+  </div>`;
+}
+
+function riskColor(v){ return v<30?'var(--green)':v<60?'var(--amber)':'var(--red)'; }
+function ruinColor(v){ return v<5?'var(--green)':v<20?'var(--amber)':'var(--red)'; }
+
+function barChart(data,height=70){
+  const max=Math.max(...data.map(d=>d.v),0.001);
+  const bars=data.map(d=>{
+    const h=Math.max(2,Math.round((d.v/max)*(height-18)));
+    const col=d.v>30?'var(--red)':d.v>20?'var(--amber)':'var(--green)';
+    return `<div class="bar-col"><div class="bar" style="height:${h}px;background:${col}"></div><div class="bar-lbl">${d.label}</div></div>`;
+  }).join('');
+  return `<div class="barchart" style="height:${height}px">${bars}</div>`;
+}
+
+// ── Score ring update ──────────────────────────────────────────────
+function updateRing(m){
+  const pfT=m.profitFactor>=2?100:m.profitFactor>=1.5?60:20;
+  const shT=m.sharpe>=1.5?100:m.sharpe>=1.0?60:20;
+  const soT=m.sortino>=2?100:m.sortino>=1?60:20;
+  const caT=m.calmar>=2?100:m.calmar>=1?60:20;
+  const ruT=m.ruinProb<5?100:m.ruinProb<20?60:20;
+  const ovT=m.overfitRisk<30?100:m.overfitRisk<60?60:20;
+  const mcT=m.mcRuinPct<5?100:m.mcRuinPct<15?60:20;
+  const score=Math.round((pfT+shT+soT+caT+ruT+ovT+mcT)/7);
+  const col=score>=70?'var(--green)':score>=40?'var(--amber)':'var(--red)';
+  const circ=2*Math.PI*26;
+  const dash=(score/100)*circ;
+  el('ringfill').setAttribute('stroke-dasharray',`${dash} ${circ}`);
+  el('ringfill').setAttribute('stroke',col);
+  el('ringscore').setAttribute('fill',col);
+  el('ringscore').textContent=score;
+}
+
+// ── Tab renderers ──────────────────────────────────────────────────
+function renderOverview(m){
+  const pfT=m.profitFactor>=2?'good':m.profitFactor>=1.5?'warn':'bad';
+  const shT=m.sharpe>=1.5?'good':m.sharpe>=1.0?'warn':'bad';
+  const soT=m.sortino>=2?'good':m.sortino>=1?'warn':'bad';
+  const caT=m.calmar>=2?'good':m.calmar>=1?'warn':'bad';
+  const ovT=m.overfitRisk<30?'good':m.overfitRisk<60?'warn':'bad';
+
+  const ovMsg=m.overfitRisk<30
+    ?'✓ 낮은 과최적화 위험 — 거래 수 충분, 수익팩터 합리적'
+    :m.overfitRisk<60
+    ?'△ 중간 수준 — Walk-Forward 및 OOS 테스트 강화 권장'
+    :'✗ 높은 과최적화 위험 — 샘플 내 성과가 실전과 크게 다를 수 있음';
+
+  const tags=[
+    {label:'Walk-Forward',ok:P.totalTrades>=200},
+    {label:'OOS ≥30%',ok:true},
+    {label:'파라미터 최소화',ok:m.overfitRisk<40},
+    {label:'다수 시장 검증',ok:P.totalTrades>=300},
+  ].map(t=>`<span class="tag ${t.ok?'tag-good':'tag-bad'}">${t.ok?'✓':'✗'} ${t.label}</span>`).join('');
+
+  return `
+    ${secHdr('14','수익팩터 (Profit Factor)')}
+    <div class="cards">
+      ${card('수익팩터',fmt(m.profitFactor),'',pfT,m.profitFactor>=2?'✓ 우수':m.profitFactor>=1.5?'△ 양호':'✗ 미달')}
+      ${card('기대값 (거래당)',fmtP(m.expectancy),'',m.expectancy>0?'good':'bad','')}
+      ${card('승률',fmtP(P.winRate),'',P.winRate>=55?'good':'warn','')}
+      ${card('손익비',fmt(P.avgWin/P.avgLoss),'','neutral',P.avgWin+'% / '+P.avgLoss+'%')}
+    </div>
+    ${secHdr('11-13','성과 비율')}
+    <div class="cards">
+      ${card('샤프 비율',fmt(m.sharpe),'',shT,'≥1.5 우수')}
+      ${card('소르티노 비율',fmt(m.sortino),'',soT,'기관 선호 지표')}
+      ${card('Calmar Ratio',fmt(m.calmar),'',caT,'연수익 / MDD')}
+      ${card('Recovery Factor',fmt(m.recoveryFactor),'',m.recoveryFactor>=2?'good':'warn','손실 회복 속도')}
+    </div>
+    ${secHdr('2','과최적화 위험도','중요')}
+    <div class="panel">
+      ${gauge('과최적화 위험',m.overfitRisk,100,riskColor)}
+      <div style="font-size:12px;color:var(--muted);line-height:1.6;margin-top:10px">${ovMsg}</div>
+      <div class="tags">${tags}</div>
+    </div>
+  `;
+}
+
+function renderRisk(m){
+  const kT=m.kellyHalf>0&&m.kellyHalf<30?'good':m.kellyHalf>=30?'warn':'bad';
+  const ruT=m.ruinProb<5?'good':m.ruinProb<20?'warn':'bad';
+
+  const scenarios=[
+    {label:'보수적 (×0.25)',ruin:m.ruinProb*.3},
+    {label:'권장 (하프켈리)',ruin:m.ruinProb},
+    {label:'공격적 (풀켈리)',ruin:Math.min(99,m.ruinProb*3)},
+  ];
+
+  return `
+    ${secHdr('9','켈리 공식 (Kelly Criterion)','핵심')}
+    <div class="panel">
+      <div class="cards" style="margin-bottom:12px">
+        ${card('풀 켈리',fmt(m.kellyFull),'%','warn','이론적 최적')}
+        ${card('하프 켈리 (권장)',fmt(m.kellyHalf),'%',kT,P.kellyFraction+'x 적용')}
+        ${card('초기자본',fmtKRW(P.initialCapital),'원','neutral','')}
+        ${card('켈리 포지션',fmtKRW(P.initialCapital*m.kellyHalf/100),'원',kT,'')}
+      </div>
+      <div class="formula-box">
+        <strong style="color:var(--text)">공식:</strong> f* = (승률/손실비율) − (패율/수익비율)<br>
+        = (${fmt(P.winRate/100,3)} / ${P.avgLoss}) − (${fmt(1-P.winRate/100,3)} / ${P.avgWin})<br>
+        = <span style="color:var(--accent)">풀켈리 ${fmt(m.kellyFull)}%</span> × ${P.kellyFraction}
+        = <span style="color:var(--green)">${fmt(m.kellyHalf)}% 포지션</span>
+      </div>
+    </div>
+    ${secHdr('10','MDD 제한 & 파산확률')}
+    <div class="cards">
+      ${card('설정 MDD',fmtP(P.mdd),'',P.mdd<20?'good':P.mdd<35?'warn':'bad','')}
+      ${card('파산확률',fmt(m.ruinProb),'%',ruT,'20단계 근사')}
+      ${card('MDD 허용 손실',fmtKRW(P.initialCapital*P.mdd/100),'원','neutral','')}
+      ${card('복구 필요 수익',fmt(P.mdd/(1-P.mdd/100)),'%','warn','원금 복구율')}
+    </div>
+    ${secHdr('16','파산확률 시나리오')}
+    <div class="panel">
+      ${scenarios.map(s=>gauge(s.label,s.ruin,100,ruinColor)).join('')}
+    </div>
+  `;
+}
+
+function renderMC(m){
+  const barData=[
+    {v:m.mc5.mdd||0,label:'5%'},
+    {v:(m.mc5.mdd+m.mc50.mdd)/2||0,label:'25%'},
+    {v:m.mc50.mdd||0,label:'50%'},
+    {v:(m.mc50.mdd+m.mc95.mdd)/2||0,label:'75%'},
+    {v:m.mc95.mdd||0,label:'95%'},
+  ];
+  const fe5T=m.mc5.fe>0.8?'warn':'bad';
+  const fe50T=m.mc50.fe>1?'good':'bad';
+  const mcRT=m.mcRuinPct<5?'good':m.mcRuinPct<15?'warn':'bad';
+
+  return `
+    ${secHdr('5','몬테카를로 시뮬레이션','핵심')}
+    <div class="panel">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:12px">${P.mcRuns}회 시뮬레이션 (${P.totalTrades}회 거래/런)</div>
+      <div class="cards" style="margin-bottom:14px">
+        ${card('5% 최악',fmt((m.mc5.fe-1)*100),'%',fe5T,'수익률')}
+        ${card('중앙값',fmt((m.mc50.fe-1)*100),'%',fe50T,'수익률')}
+        ${card('95% 최선',fmt((m.mc95.fe-1)*100),'%','good','수익률')}
+        ${card('파산 비율',fmt(m.mcRuinPct),'%',mcRT,'자산 50% 이하')}
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px">MDD 분포</div>
+      ${barChart(barData)}
+    </div>
+    ${secHdr('3','Walk-Forward Analysis 가이드')}
+    <div class="panel">
+      ${[
+        {step:'IS 구간',desc:'전체 데이터의 70% — 최적화 구간',col:'var(--accent)'},
+        {step:'OOS 구간',desc:'전체 데이터의 30% — 검증 (미래 데이터)',col:'var(--green)'},
+        {step:'슬라이딩',desc:'IS+OOS를 시간축으로 순차적으로 이동',col:'var(--amber)'},
+        {step:'일치도',desc:'IS/OOS 성과 차이 ≤30% 권장',col:'var(--text)'},
+      ].map(r=>`<div class="wf-row"><div class="wf-step" style="color:${r.col}">${r.step}</div><div class="wf-desc">${r.desc}</div></div>`).join('')}
+    </div>
+    ${secHdr('4','Out-of-Sample 테스트')}
+    <div class="panel">
+      <div class="col3">
+        <div class="col3-card"><div class="col3-lbl">샘플 내 PF</div><div class="col3-val" style="color:var(--accent)">${fmt(m.profitFactor)}</div></div>
+        <div class="col3-card"><div class="col3-lbl">OOS 목표 (≥70%)</div><div class="col3-val" style="color:var(--green)">${fmt(m.profitFactor*.75)}</div></div>
+        <div class="col3-card"><div class="col3-lbl">허용 최소치</div><div class="col3-val" style="color:var(--amber)">1.30</div></div>
+      </div>
+    </div>
+  `;
+}
+
+function renderCost(m){
+  const capRows=[
+    {label:'1천만원',slipMult:1.0},
+    {label:'1억원',slipMult:1.3},
+    {label:'5억원',slipMult:1.8},
+    {label:'10억원',slipMult:2.5},
+    {label:'50억원',slipMult:4.0},
+  ].map(row=>{
+    const adjCost=m.totalCostPct*row.slipMult;
+    const adjRet=m.netAnnualReturn-(adjCost-m.totalCostPct)*P.totalTrades;
+    const col=adjRet>0?'var(--green)':'var(--red)';
+    const bg=adjRet>0?'rgba(0,255,136,.05)':'rgba(255,59,92,.05)';
+    const border=adjRet>0?'rgba(0,255,136,.2)':'rgba(255,59,92,.2)';
+    return `<div class="cap-row" style="background:${bg};border:1px solid ${border}">
+      <div class="cap-seed">${row.label}</div>
+      <div class="cap-detail">슬리피지 ×${row.slipMult} / 비용 ${fmt(adjCost)}%</div>
+      <div class="cap-ret" style="color:${col}">${adjRet>0?'+':''}${fmt(adjRet)}%</div>
+    </div>`;
+  }).join('');
+
+  return `
+    ${secHdr('7','거래비용 시뮬레이션')}
+    <div class="panel">
+      <div class="cards" style="margin-bottom:12px">
+        ${card('수수료 (왕복)',fmt(P.commissionRate*2),'%','neutral','')}
+        ${card('슬리피지',fmtP(P.slippagePct),'','neutral','')}
+        ${card('스프레드',fmtP(P.spreadPct),'','neutral','')}
+        ${card('거래당 총비용',fmt(m.totalCostPct),'%',m.totalCostPct<0.2?'good':'warn','')}
+      </div>
+      <hr class="panel-divider">
+      <div class="cards">
+        ${card('연간 비용 드래그',fmt(m.costDragPct),'%',m.costDragPct<5?'good':m.costDragPct<10?'warn':'bad',P.totalTrades+'회 × '+fmt(m.totalCostPct)+'%')}
+        ${card('순 수익률',fmt(m.netAnnualReturn),'%',m.netAnnualReturn>0?'good':'bad','비용 차감 후')}
+      </div>
+    </div>
+    ${secHdr('8','용량 분석 (Capacity Analysis)')}
+    <div class="panel">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.6">
+        투입 자금 증가 → 슬리피지 증가 → 실질 수익 감소.<br>일 거래량의 1~5% 초과 주의.
+      </div>
+      ${capRows}
+    </div>
+  `;
+}
+
+function renderStress(m){
+  const crises=[
+    {name:'2020 코로나 충격',drop:-35,dur:'33일'},
+    {name:'2008 금융위기',drop:-57,dur:'17개월'},
+    {name:'2022 LUNA 사태',drop:-99,dur:'1주일'},
+    {name:'2018 암호화폐 폭락',drop:-84,dur:'12개월'},
+    {name:'2015 중국 블랙먼데이',drop:-12,dur:'2주'},
+  ].map(c=>{
+    const ok=(P.mdd+Math.abs(c.drop)*.5)<80;
+    const dotBg=ok?'var(--green)':'var(--red)';
+    const retCol=c.drop<-50?'var(--red)':c.drop<-20?'var(--amber)':'var(--text)';
+    return `<div class="crisis-row">
+      <div class="crisis-dot" style="background:${dotBg}">${ok?'✓':'✗'}</div>
+      <div><div class="crisis-name">${c.name}</div><div class="crisis-dur">기간: ${c.dur}</div></div>
+      <div class="crisis-pct" style="color:${retCol}">${c.drop}%</div>
+    </div>`;
+  }).join('');
+
+  const regimes=['상승장 검증 (Bull)','하락장 검증 (Bear)','횡보장 (Sideways)','고변동성 구간','저변동성 구간'];
+  const factors=['모멘텀 팩터','밸류 팩터','사이즈 팩터','퀄리티 팩터','시장 베타'];
+
+  return `
+    ${secHdr('6','스트레스 테스트 (위기 시나리오)')}
+    <div class="panel">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">충격 강도: <span style="color:var(--red);font-family:'Courier New',monospace">-${P.stressShockPct}% 자산 충격</span></div>
+      <div class="cards">
+        ${card('스트레스 후 자산',fmt(m.stressEquity),'%','bad','정상 대비')}
+        ${card('스트레스 MDD',fmt(m.stressMDD),'%','bad','')}
+        ${card('스트레스 샤프',fmt(m.stressSharpe),'',m.stressSharpe>0?'warn':'bad','')}
+        ${card('손실액',fmtKRW(P.initialCapital*P.stressShockPct/100),'원','bad','')}
+      </div>
+    </div>
+    ${secHdr('6','역사적 위기 사례')}
+    <div class="panel">${crises}</div>
+    ${secHdr('17-19','Regime / 상관관계 / 팩터 익스포저')}
+    <div class="panel">
+      <div class="check2">
+        <div>
+          <div class="check-title">시장 상황별 체크</div>
+          <div class="checklist">${regimes.map(i=>`<div class="check-item"><span class="check-box">□</span>${i}</div>`).join('')}</div>
+        </div>
+        <div>
+          <div class="check-title">팩터 익스포저</div>
+          <div class="checklist">${factors.map(i=>`<div class="check-item"><span class="check-box">□</span>${i}</div>`).join('')}</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ── Render params ──────────────────────────────────────────────────
+const SLIDERS=[
+  {key:'totalTrades',label:'총 거래 횟수',min:50,max:1000,step:10,unit:'회'},
+  {key:'winRate',label:'승률',min:30,max:80,step:1,unit:'%'},
+  {key:'avgWin',label:'평균 수익',min:0.5,max:5,step:0.1,unit:'%'},
+  {key:'avgLoss',label:'평균 손실',min:0.3,max:3,step:0.1,unit:'%'},
+  {key:'annualReturn',label:'연 수익률',min:5,max:100,step:1,unit:'%'},
+  {key:'mdd',label:'MDD',min:3,max:60,step:1,unit:'%'},
+  {key:'kellyFraction',label:'켈리 분수',min:0.1,max:1.0,step:0.1,unit:'x'},
+  {key:'commissionRate',label:'수수료 (편도)',min:0.005,max:0.1,step:0.005,unit:'%'},
+  {key:'slippagePct',label:'슬리피지',min:0.01,max:0.2,step:0.01,unit:'%'},
+  {key:'stressShockPct',label:'스트레스 충격',min:10,max:60,step:5,unit:'%'},
+];
+
+function buildParams(){
+  const panel=el('params-panel');
+  let html='<div class="params-title">⚙ 전략 파라미터</div>';
+  SLIDERS.forEach(s=>{
+    html+=`<div class="slider-wrap">
+      <div class="slider-row">
+        <span class="slider-lbl">${s.label}</span>
+        <span class="slider-val" id="sv-${s.key}">${P[s.key]}${s.unit}</span>
+      </div>
+      <input type="range" min="${s.min}" max="${s.max}" step="${s.step}" value="${P[s.key]}"
+        oninput="onSlider('${s.key}','${s.unit}',this.value)">
+    </div>`;
+  });
+  panel.innerHTML=html;
+}
+
+function onSlider(key,unit,val){
+  P[key]=parseFloat(val);
+  el('sv-'+key).textContent=P[key]+unit;
+  render();
+}
+
+// ── Tab switch ─────────────────────────────────────────────────────
+function switchTab(tab){
+  currentTab=tab;
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.classList.toggle('active', t.textContent.trim()===
+      {overview:'Overview',risk:'리스크',montecarlo:'Monte Carlo',cost:'비용/용량',stress:'스트레스'}[tab]);
+  });
+  render();
+}
+
+// ── Main render ────────────────────────────────────────────────────
+function render(){
+  const m=calcMetrics();
+  updateRing(m);
+  const renderers={overview:renderOverview,risk:renderRisk,montecarlo:renderMC,cost:renderCost,stress:renderStress};
+  el('tab-content').innerHTML=(renderers[currentTab]||renderOverview)(m);
+}
+
+buildParams();
+render();
+</script>
+</body>
+</html>
